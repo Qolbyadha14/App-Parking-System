@@ -1,4 +1,5 @@
-﻿using App_Parking_System.Data;
+﻿using App_Parking_System.Config;
+using App_Parking_System.Data;
 using App_Parking_System.Dto;
 using App_Parking_System.Helpers;
 using App_Parking_System.Models;
@@ -6,6 +7,8 @@ using App_Parking_System.Repositories;
 using App_Parking_System.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using System.Drawing;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace App_Parking_System.Controllers
@@ -14,17 +17,21 @@ namespace App_Parking_System.Controllers
     {
         private readonly IVehicleRepository _vehicleRepository;
         private readonly IParkingLotRepository _parkingLotRepository;
+        private readonly IParkingSettingRepository _parkingSettingRepository;
+        private readonly IReportRepository _reportRepository;
         private readonly ApplicationDbContext _parkingDbContext;
         private readonly ILogger<ParkingController> _logger;
         private readonly ParkingSettings _parkingSettings;
 
-        public ParkingController(IVehicleRepository vehicleRepository, IParkingLotRepository parkingLotRepository, ApplicationDbContext parkingDbContext, ILogger<ParkingController> logger, IOptions<ParkingSettings> parkingSettings)
+        public ParkingController(IVehicleRepository vehicleRepository, IParkingLotRepository parkingLotRepository, ApplicationDbContext parkingDbContext, ILogger<ParkingController> logger, IParkingSettingRepository parkingSettingRepository, IReportRepository reportRepository)
         {
             _vehicleRepository = vehicleRepository;
             _parkingLotRepository = parkingLotRepository;
             _parkingDbContext = parkingDbContext;
             _logger = logger;
-            _parkingSettings = parkingSettings.Value;
+            _parkingSettingRepository = parkingSettingRepository;
+            _reportRepository = reportRepository;
+
 
         }
 
@@ -33,156 +40,220 @@ namespace App_Parking_System.Controllers
             return View();
         }
 
+
+        // action used when the car enters
         [HttpPost]
-        public IActionResult CheckIn(CheckinRequest request)
+        public async Task<IActionResult> CheckIn(CheckinRequest request)
         {
-            var r = request;
             var vehicle = ObjectHelpers.Convert<CheckinRequest, Vehicle>(request);
-            if (ModelState.IsValid)
-            {
-                var existingVehicle = _parkingDbContext.Vehicles.FirstOrDefault(v => v.PoliceNumber == vehicle.PoliceNumber && v.CheckOutTime == null);
-                if (existingVehicle != null)
-                {
-                    TempData["ErrorMessage"] = "Gagal check-in: Kendaraan dengan nomor polisi yang sama sudah check-in.";
-                    return RedirectToAction(nameof(Index));
-                }
+            var checkMaxLot = await _parkingSettingRepository.GetParkingSettings(AppConstans.PARKING_SETTING_MAXLOT);
 
-                var availableLots = Enumerable.Range(1, _parkingSettings.MaxLots).Except(_parkingDbContext.Vehicles.Where(v => v.CheckOutTime == null).Select(v => v.LotNumber)).ToList();
-                if (availableLots.Any())
-                {
-                    vehicle.LotNumber = availableLots.Min();
-                    _parkingDbContext.Vehicles.Add(vehicle);
-                    _parkingDbContext.SaveChanges();
-                    TempData["SuccessMessage"] = $"Check-in berhasil! Kendaraan dialokasikan ke lot {vehicle.LotNumber}.";
-                    return RedirectToAction(nameof(Index));
-                }
-                else
-                {
-                    TempData["ErrorMessage"] = "Gagal check-in: Semua lot parkir penuh.";
-                    return RedirectToAction(nameof(Index));
-                }
-            }
-           
-            var errors = new StringBuilder();
-            foreach (var modelState in ModelState.Values)
+            //Check If Max Lot Parking Null
+            if (checkMaxLot == null)
             {
-                foreach (var error in modelState.Errors)
-                {
-                    errors.AppendLine(error.ErrorMessage);
-                }
+                TempData["ErrorMessage"] = "Gagal check-in: Parking Setting Belum Di Setup.";
+                return RedirectToAction(nameof(Setting));
             }
 
-            TempData["ErrorMessage"] = $"Gagal check-in: {errors}";
+            //Check Validation Request
+            if (!ModelState.IsValid)
+            {
+                var errors = new StringBuilder();
+                foreach (var modelState in ModelState.Values)
+                {
+                    foreach (var error in modelState.Errors)
+                    {
+                        errors.AppendLine(error.ErrorMessage);
+                    }
+                }
+
+                TempData["ErrorMessage"] = $"Gagal check-in: {errors}";
+                return RedirectToAction(nameof(Index));                
+            }
+            
+            //Check If existingVehicle Is Not null
+            var existingVehicle = await _vehicleRepository.GetExistingVehicleByPoliceNumber(request.PoliceNumber);
+            if (existingVehicle != null)
+            {
+                TempData["ErrorMessage"] = "Gagal check-in: Kendaraan dengan nomor polisi yang sama sudah check-in.";
+                return RedirectToAction(nameof(Index));
+            }
+
+
+            var getExistingVehicle = await _vehicleRepository.GetExistingVehicle();
+            var availableLots = Enumerable.Range(1, Convert.ToInt16(checkMaxLot.Value)).Except(getExistingVehicle.Select(v => v.LotNumber)).ToList();
+
+            if (availableLots.Any())
+            {
+                vehicle.LotNumber = availableLots.Min();
+                vehicle.CheckInTime = DateTime.Now;
+                _ = await _vehicleRepository.AddVehicle(vehicle);
+                TempData["SuccessMessage"] = $"Check-in berhasil! Kendaraan dialokasikan ke lot {vehicle.LotNumber}.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            TempData["ErrorMessage"] = "Gagal check-in: Semua lot parkir penuh.";
             return RedirectToAction(nameof(Index));
-
         }
 
+        // action used when the car exits
         [HttpPost]
-        public IActionResult CheckOut(CheckOutRequest vehicle)
+        public async Task<IActionResult> CheckOut(CheckOutRequest request)
         {
-            if (ModelState.IsValid)
+            //Check Validation Request
+            if (!ModelState.IsValid)
             {
-                var existingVehicle = _parkingDbContext.Vehicles.FirstOrDefault(v => v.PoliceNumber == vehicle.PoliceNumber && v.CheckOutTime == null);
-                if (existingVehicle != null)
+                var errors = new StringBuilder();
+                foreach (var modelState in ModelState.Values)
                 {
-                    existingVehicle.CheckOutTime = DateTime.Now;
-                    _parkingDbContext.SaveChanges();
-                    TempData["SuccessMessage"] = $"Check-out berhasil! Slot number {existingVehicle.LotNumber} is free";
-                    return RedirectToAction(nameof(Index));
+                    foreach (var error in modelState.Errors)
+                    {
+                        errors.AppendLine(error.ErrorMessage);
+                    }
                 }
-                else
-                {
-                    TempData["ErrorMessage"] = "Gagal check-out: Kendaraan dengan nomor polisi yang dimasukkan tidak ditemukan.";
-                    return RedirectToAction(nameof(Index));
-                }
+
+                TempData["ErrorMessage"] = $"Gagal check-in: {errors}";
+                return RedirectToAction(nameof(Index));
             }
 
-            var errors = new StringBuilder();
-            foreach (var modelState in ModelState.Values)
+            var existingVehicle = await _vehicleRepository.GetExistingVehicleByPoliceNumber(request.PoliceNumber);
+            var pricePerHour = getPricePerHour();
+            if (existingVehicle != null)
             {
-                foreach (var error in modelState.Errors)
-                {
-                    errors.AppendLine(error.ErrorMessage);
-                }
+                existingVehicle.CheckOutTime = DateTime.Now;
+                existingVehicle.pricePerHour = CalculateParkingFee(existingVehicle.CheckInTime, pricePerHour);
+                _ = await _vehicleRepository.UpdateVehicle(existingVehicle);
+                TempData["SuccessMessage"] = $"Check-out berhasil! Slot number {existingVehicle.LotNumber} is free";
+                return RedirectToAction(nameof(Index));
             }
-
-            TempData["ErrorMessage"] = $"Gagal check-in: {errors}";
-            return RedirectToAction(nameof(Index));
+            else
+            {
+                TempData["ErrorMessage"] = "Gagal check-out: Kendaraan dengan nomor polisi yang dimasukkan tidak ditemukan.";
+                return RedirectToAction(nameof(Index));
+            }
         }
 
-        public IActionResult Reports()
+        // action used when the check all reports
+        public async Task<IActionResult> Reports()
         {
-            var vehicleGroups_type = _parkingDbContext.Vehicles
-            .Where(v => v.CheckOutTime == null)
-            .GroupBy(v => v.Type)
-            .Select(g => new VehicleGroup
-            {
-                Key = g.Key.ToString(),
-                Count = g.Count()
-            })
-            .ToList();
-
-            var vehicleGroups_police_number = _parkingDbContext.Vehicles
-                .Where(v => v.CheckOutTime == null)
-                .GroupBy(v => ExtractNumberFromPoliceNumber(v.PoliceNumber) % 2 == 0 ? "Even" : "Odd")
-                .Select(g => new VehicleGroup
+            var checkMaxLot = await _parkingSettingRepository.GetParkingSettings(AppConstans.PARKING_SETTING_MAXLOT);
+            var pricePerHour = getPricePerHour();
+            var vehicleList = (await _vehicleRepository.GetExistingVehicle())
+                .Select(vehicle => new Vehicle
                 {
-                    Key = g.Key,
-                    Count = g.Count()
-                })
-                .ToList();
-
-            var vehicleGroups_color = _parkingDbContext.Vehicles
-                .Where(v => v.CheckOutTime == null)
-                .GroupBy(v => v.Color)
-                .Select(g => new VehicleGroup
-                {
-                    Key = g.Key.ToString(),
-                    Count = g.Count()
+                    PoliceNumber = vehicle.PoliceNumber,
+                    Type = vehicle.Type,
+                    Color = vehicle.Color,
+                    CheckInTime = vehicle.CheckInTime,
+                    CheckOutTime = vehicle.CheckOutTime,
+                    LotNumber = vehicle.LotNumber,
+                    pricePerHour = CalculateParkingFee(vehicle.CheckInTime, pricePerHour)
                 })
                 .ToList();
 
             var viewModel = new ReportsViewModel
             {
-                TotalLots = _parkingSettings.MaxLots,
-                AvailableLots = _parkingSettings.MaxLots - _parkingDbContext.Vehicles.Count(v => v.CheckOutTime == null),
-                VehiclesByColors = vehicleGroups_color,
-                VehiclesByType = vehicleGroups_type,
-                VehiclesByPoliceNumber = vehicleGroups_police_number,
-                Vehicles = _parkingDbContext.Vehicles.Where(v => v.CheckOutTime == null).ToList()
+                TotalLots = checkMaxLot == null ? 0 : Convert.ToInt16(checkMaxLot.Value),
+                AvailableLots = checkMaxLot == null ? 0 : Convert.ToInt16(checkMaxLot.Value) - vehicleList.Count(),
+                OccupiedLots = checkMaxLot == null ? 0 : vehicleList.Count(),
+                VehiclesByColors = await _reportRepository.GetDataReportVehicleGroupsByColors(),
+                VehiclesByType = await _reportRepository.GetDataReportVehicleGroupsByType(),
+                VehiclesByPoliceNumber = await _reportRepository.GetDataReportVehicleGroupsByTypePoliceNumber(),
+                Vehicles = vehicleList
             };
 
             return View(viewModel);
         }
 
-        [HttpGet]
-        public IActionResult CreateTestData()
+        // action used when the check all setting parking
+        public async Task<IActionResult> Setting()
         {
-            var random = new Random();
-            var vehicleTypes = Enum.GetValues(typeof(VehicleType)).Cast<VehicleType>().ToArray();
+            var checkMaxLot = await _parkingSettingRepository.GetParkingSettings(AppConstans.PARKING_SETTING_MAXLOT);
+            var checkPrice = await _parkingSettingRepository.GetParkingSettings(AppConstans.PARKING_SETTING_PRICE);
+            var checkHours = await _parkingSettingRepository.GetParkingSettings(AppConstans.PARKING_SETTING_HOURS);
 
-            for (int i = 0; i <= 5; i++)
+            var viewModel = new ParkingSettingViewModel
             {
-                var vehicle = new Vehicle()
-                {
-                    CheckInTime = DateTime.Now,
-                    LotNumber = i + 1,
-                    Color = "Blue",
-                    PoliceNumber = $"B-270{i}-XXX",
-                    Type = vehicleTypes[random.Next(vehicleTypes.Length)],
-                };
-
-                _parkingDbContext.Vehicles.Add(vehicle);
-                _parkingDbContext.SaveChanges();
-            }
-            TempData["ErrorMessage"] = "Create Test Data Berhasil";
-            return RedirectToAction(nameof(Index));
+                MaxLots = checkMaxLot == null ? 0 : Convert.ToInt16(checkMaxLot.Value),
+                Price = checkPrice == null ? 0 : Convert.ToInt16(checkPrice.Value),
+                Hours = checkHours == null ? 0 : Convert.ToInt16(checkHours.Value)
+            };
+            return View(viewModel);
         }
 
-        private int ExtractNumberFromPoliceNumber(string policeNumber)
+        // action used when the update all setting parking
+        [HttpPost]
+        public async Task<IActionResult> SettingUpdate(ParkingSettingRequest request)
         {
-            var numberString = new string(policeNumber.Where(char.IsDigit).ToArray());
-            return int.Parse(numberString);
+            if (!ModelState.IsValid)
+            {
+                var errors = new StringBuilder();
+                foreach (var modelState in ModelState.Values)
+                {
+                    foreach (var error in modelState.Errors)
+                    {
+                        errors.AppendLine(error.ErrorMessage);
+                    }
+                }
+
+                TempData["ErrorMessage"] = $"Gagal Update Setting : {errors}";
+                return RedirectToAction(nameof(Setting));
+            }
+
+            var settingCodes = new[] { AppConstans.PARKING_SETTING_MAXLOT, AppConstans.PARKING_SETTING_PRICE, AppConstans.PARKING_SETTING_HOURS };
+            var requestValues = new[] { request.MaxLots.ToString(), request.Price.ToString(), request.Hours.ToString() };
+
+            for (int i = 0; i < settingCodes.Length; i++)
+            {
+                var setting = await _parkingSettingRepository.GetParkingSettings(settingCodes[i]);
+                var newSetting = new ParkingSettings { Code = settingCodes[i], Name = settingCodes[i], Value = requestValues[i] };
+
+                if (setting == null)
+                {
+                    await _parkingSettingRepository.AddParkingSettings(newSetting);
+                }
+                else
+                {
+                    newSetting.Id = setting.Id;
+                    await _parkingSettingRepository.UpdateParkingSettings(newSetting);
+                }
+            }
+
+            return RedirectToAction(nameof(Setting));
+        }
+
+
+        // action used when calculate the price of parking
+        private decimal CalculateParkingFee(DateTime checkInTime, int pricePerHour)
+        {
+            DateTime currentTime = DateTime.Now;
+            TimeSpan parkedDuration = currentTime - checkInTime;
+
+            // Jika belum 1 jam, biaya tetap untuk 1 jam
+            if (parkedDuration.TotalHours < 1)
+            {
+                return pricePerHour;
+            }
+            else
+            {
+                // Hitung jumlah jam parkir dengan pembulatan ke atas
+                int totalHours = (int)Math.Ceiling(parkedDuration.TotalHours);
+                return totalHours * pricePerHour;
+            }
+        }
+
+        // action used when get Price From Setting Data
+        private int getPricePerHour()
+        {
+            var checkPrice = _parkingSettingRepository.GetParkingSettings(AppConstans.PARKING_SETTING_PRICE).Result;
+            var checkHours = _parkingSettingRepository.GetParkingSettings(AppConstans.PARKING_SETTING_HOURS).Result;
+            var checkHoursValue = checkHours != null ? Convert.ToInt16(checkHours.Value) : 1;
+            var pricePerHour = 0;
+            if (checkPrice != null && checkPrice.Value != "0")
+            {
+                pricePerHour = Convert.ToInt16(checkPrice.Value) * checkHoursValue;
+            }
+            return pricePerHour;
         }
     }
 }

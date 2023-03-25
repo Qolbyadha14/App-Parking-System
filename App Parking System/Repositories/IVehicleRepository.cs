@@ -4,9 +4,11 @@ namespace App_Parking_System.Repositories
 {
     public interface IVehicleRepository
     {
-        IEnumerable<Vehicle> GetAllVehicles();
-        Vehicle GetVehicle(int id);
-        Vehicle AddVehicle(Vehicle vehicle);
-        Vehicle UpdateVehicle(Vehicle vehicle);
+        Task<IEnumerable<Vehicle>> GetAllVehicles();
+        Task<Vehicle> GetVehicle(int id);
+        Task<Vehicle> GetExistingVehicleByPoliceNumber(string PoliceNumber);
+        Task<List<Vehicle>> GetExistingVehicle();
+        Task<Vehicle> AddVehicle(Vehicle vehicle);
+        Task<Vehicle> UpdateVehicle(Vehicle vehicle);
     }
 }

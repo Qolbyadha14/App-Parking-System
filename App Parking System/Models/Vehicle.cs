@@ -9,6 +9,7 @@
         public DateTime CheckInTime { get; set; }
         public DateTime? CheckOutTime { get; set; }
         public int LotNumber { get; set; }
+        public decimal? pricePerHour  { get; set; }
 
     }
 

@@ -27,7 +27,7 @@
         <form asp-action="CheckIn" method="post">
             <div class="mb-3">
                 <label for="policeNumber" class="form-label">Police Number</label>
-                <input type="text" class="form-control" name="PoliceNumber" id="PoliceNumber">
+                <input type="text" class="form-control" name="PoliceNumber" id="PoliceNumber" required>
                 <span asp-validation-for="PoliceNumber" class="text-danger"></span>
 
             </div>
@@ -52,7 +52,7 @@
         <form asp-action="CheckOut" method="post">
             <div class="mb-3">
                 <label for="policeNumber" class="form-label">Police Number</label>
-                <input type="text" class="form-control" name="PoliceNumber" id="PoliceNumber">
+                <input type="text" class="form-control" name="PoliceNumber" id="PoliceNumber" required>
                 <span asp-validation-for="PoliceNumber" class="text-danger"></span>
             </div>
             <button type="submit" class="btn btn-primary">Check Out</button>
