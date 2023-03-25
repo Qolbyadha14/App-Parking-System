@@ -1,5 +1,7 @@
 ﻿using App_Parking_System.Data;
 using App_Parking_System.Models;
+using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 namespace App_Parking_System.Repositories.Contract
 {
@@ -12,28 +14,38 @@ namespace App_Parking_System.Repositories.Contract
             _context = context;
         }
 
-        public IEnumerable<Vehicle> GetAllVehicles()
+        public async Task<IEnumerable<Vehicle>>  GetAllVehicles()
         {
-            return _context.Vehicles.ToList();
+            return await _context.Vehicles.ToListAsync();
         }
 
-        public Vehicle GetVehicle(int id)
+        public async Task<Vehicle> GetVehicle(int id)
         {
-            return _context.Vehicles.Find(id);
+            return await _context.Vehicles.FindAsync(id);
         }
 
-        public Vehicle AddVehicle(Vehicle vehicle)
+        public async Task<Vehicle> AddVehicle(Vehicle vehicle)
         {
             _context.Vehicles.Add(vehicle);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
             return vehicle;
         }
 
-        public Vehicle UpdateVehicle(Vehicle vehicle)
+        public async Task<Vehicle> UpdateVehicle(Vehicle vehicle)
         {
             _context.Vehicles.Update(vehicle);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
             return vehicle;
+        }
+
+        public async Task<Vehicle> GetExistingVehicleByPoliceNumber(string PoliceNumber)
+        {
+            return await _context.Vehicles.FirstOrDefaultAsync(v => v.PoliceNumber == PoliceNumber && v.CheckOutTime == null);
+        }
+
+        public async Task<List<Vehicle>> GetExistingVehicle()
+        {
+            return await _context.Vehicles.Where(v => v.CheckOutTime == null).ToListAsync();
         }
     }
 }

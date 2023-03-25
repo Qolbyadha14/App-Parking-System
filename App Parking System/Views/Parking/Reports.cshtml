@@ -11,13 +11,17 @@
         <table class="table table-bordered">
             <tbody>
                 <tr>
+                    <td>Available lots</td>
+                    <td>@Model.AvailableLots</td>
+                </tr>
+                <tr>
+                    <td>Occupied Lots</td>
+                    <td>@Model.OccupiedLots </td>
+                </tr>
+                <tr>
                     <td>Total lots</td>
                     <td>@Model.TotalLots</td>
                 </tr>
-                <tr>
-                    <td>Available lots</td>
-                    <td>@Model.AvailableLots</td>
-                </tr>             
             </tbody>
         </table>
     </div>
@@ -102,6 +106,7 @@
                     <th scope="col">CheckInTime</th>
                     <th scope="col">CheckOutTime</th>
                     <th scope="col">LotNumber</th>
+                    <th scope="col">Price</th>
                 </tr>
             </thead>
             <tbody>
@@ -114,6 +119,7 @@
                         <td>@datas.CheckInTime</td>
                         <td>@datas.CheckOutTime</td>
                         <td>@datas.LotNumber</td>
+                        <td>Rp. @datas.pricePerHour?.ToString("N0")</td>
                     </tr>
                 }
             </tbody>

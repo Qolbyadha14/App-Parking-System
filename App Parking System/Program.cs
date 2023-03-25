@@ -13,6 +13,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddScoped<IVehicleRepository, VehicleRepository>();
 builder.Services.AddScoped<IParkingLotRepository, ParkingLotRepository>();
 builder.Services.AddScoped<IParkingSettingRepository, ParkingSettingRepository>();
+builder.Services.AddScoped<IReportRepository, ReportRepository>();
 builder.Services.AddControllersWithViews();
 builder.Services.Configure<ParkingSettings>(builder.Configuration.GetSection("ParkingSettings"));
 

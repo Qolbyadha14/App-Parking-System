@@ -27,17 +27,17 @@
 
             <div class="mb-3">
                 <label for="MaxLots" class="form-label">Max Lots Parking</label>
-                <input type="number" class="form-control" name="MaxLots" id="MaxLots" value="@Model.MaxLots">
+                <input type="number" class="form-control" name="MaxLots" id="MaxLots" value="@Model.MaxLots" required>
             </div>
 
             <div class="mb-3">
                 <label for="Price" class="form-label">Price</label>
-                <input type="number" class="form-control" name="Price" id="Price" value="@Model.Price">
+                <input type="number" class="form-control" name="Price" id="Price" value="@Model.Price" required>
             </div>
 
             <div class="mb-3">
                 <label for="PerHours" class="form-label">Hours</label>
-                <input type="number" class="form-control" name="Hours" id="Hours" value="@Model.Hours">
+                <input type="number" class="form-control" name="Hours" id="Hours" value="@Model.Hours" required>
             </div>
 
             <button type="submit" class="btn btn-primary">Save Setup</button>

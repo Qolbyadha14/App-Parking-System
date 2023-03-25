@@ -7,6 +7,8 @@ using App_Parking_System.Repositories;
 using App_Parking_System.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using System.Drawing;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace App_Parking_System.Controllers
@@ -16,17 +18,19 @@ namespace App_Parking_System.Controllers
         private readonly IVehicleRepository _vehicleRepository;
         private readonly IParkingLotRepository _parkingLotRepository;
         private readonly IParkingSettingRepository _parkingSettingRepository;
+        private readonly IReportRepository _reportRepository;
         private readonly ApplicationDbContext _parkingDbContext;
         private readonly ILogger<ParkingController> _logger;
         private readonly ParkingSettings _parkingSettings;
 
-        public ParkingController(IVehicleRepository vehicleRepository, IParkingLotRepository parkingLotRepository, ApplicationDbContext parkingDbContext, ILogger<ParkingController> logger, IParkingSettingRepository parkingSettingRepository)
+        public ParkingController(IVehicleRepository vehicleRepository, IParkingLotRepository parkingLotRepository, ApplicationDbContext parkingDbContext, ILogger<ParkingController> logger, IParkingSettingRepository parkingSettingRepository, IReportRepository reportRepository)
         {
             _vehicleRepository = vehicleRepository;
             _parkingLotRepository = parkingLotRepository;
             _parkingDbContext = parkingDbContext;
             _logger = logger;
             _parkingSettingRepository = parkingSettingRepository;
+            _reportRepository = reportRepository;
 
 
         }
@@ -36,17 +40,22 @@ namespace App_Parking_System.Controllers
             return View();
         }
 
+
+        // action used when the car enters
         [HttpPost]
         public async Task<IActionResult> CheckIn(CheckinRequest request)
         {
             var vehicle = ObjectHelpers.Convert<CheckinRequest, Vehicle>(request);
             var checkMaxLot = await _parkingSettingRepository.GetParkingSettings(AppConstans.PARKING_SETTING_MAXLOT);
+
+            //Check If Max Lot Parking Null
             if (checkMaxLot == null)
             {
                 TempData["ErrorMessage"] = "Gagal check-in: Parking Max Setting Belum Di Setup.";
                 return RedirectToAction(nameof(Setting));
             }
 
+            //Check Validation Request
             if (!ModelState.IsValid)
             {
                 var errors = new StringBuilder();
@@ -61,25 +70,24 @@ namespace App_Parking_System.Controllers
                 TempData["ErrorMessage"] = $"Gagal check-in: {errors}";
                 return RedirectToAction(nameof(Index));                
             }
-
-            // Todo  : Ganti Pake Repository
-            var existingVehicle = _parkingDbContext.Vehicles.FirstOrDefault(v => v.PoliceNumber == vehicle.PoliceNumber && v.CheckOutTime == null);
+            
+            //Check If existingVehicle Is Not null
+            var existingVehicle = await _vehicleRepository.GetExistingVehicleByPoliceNumber(request.PoliceNumber);
             if (existingVehicle != null)
             {
                 TempData["ErrorMessage"] = "Gagal check-in: Kendaraan dengan nomor polisi yang sama sudah check-in.";
                 return RedirectToAction(nameof(Index));
             }
 
-            // Todo  : Ganti Pake Repository
-            var availableLots = Enumerable.Range(1, Convert.ToInt16(checkMaxLot.Value)).Except(_parkingDbContext.Vehicles.Where(v => v.CheckOutTime == null).Select(v => v.LotNumber)).ToList();
+
+            var getExistingVehicle = await _vehicleRepository.GetExistingVehicle();
+            var availableLots = Enumerable.Range(1, Convert.ToInt16(checkMaxLot.Value)).Except(getExistingVehicle.Select(v => v.LotNumber)).ToList();
 
             if (availableLots.Any())
             {
-                // Todo  : Ganti Pake Repository
                 vehicle.LotNumber = availableLots.Min();
                 vehicle.CheckInTime = DateTime.Now;
-                _parkingDbContext.Vehicles.Add(vehicle);
-                _parkingDbContext.SaveChanges();
+                _ = await _vehicleRepository.AddVehicle(vehicle);
                 TempData["SuccessMessage"] = $"Check-in berhasil! Kendaraan dialokasikan ke lot {vehicle.LotNumber}.";
                 return RedirectToAction(nameof(Index));
             }
@@ -88,9 +96,11 @@ namespace App_Parking_System.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        // action used when the car exits
         [HttpPost]
-        public IActionResult CheckOut(CheckOutRequest vehicle)
+        public async Task<IActionResult> CheckOut(CheckOutRequest request)
         {
+            //Check Validation Request
             if (!ModelState.IsValid)
             {
                 var errors = new StringBuilder();
@@ -106,13 +116,13 @@ namespace App_Parking_System.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            // Todo  : Ganti Pake Repository
-            var existingVehicle = _parkingDbContext.Vehicles.FirstOrDefault(v => v.PoliceNumber == vehicle.PoliceNumber && v.CheckOutTime == null);
+            var existingVehicle = await _vehicleRepository.GetExistingVehicleByPoliceNumber(request.PoliceNumber);
+            var pricePerHour = getPricePerHour();
             if (existingVehicle != null)
             {
-                // Todo  : Ganti Pake Repository
                 existingVehicle.CheckOutTime = DateTime.Now;
-                _parkingDbContext.SaveChanges();
+                existingVehicle.pricePerHour = CalculateParkingFee(existingVehicle.CheckInTime, pricePerHour);
+                _ = await _vehicleRepository.UpdateVehicle(existingVehicle);
                 TempData["SuccessMessage"] = $"Check-out berhasil! Slot number {existingVehicle.LotNumber} is free";
                 return RedirectToAction(nameof(Index));
             }
@@ -121,61 +131,41 @@ namespace App_Parking_System.Controllers
                 TempData["ErrorMessage"] = "Gagal check-out: Kendaraan dengan nomor polisi yang dimasukkan tidak ditemukan.";
                 return RedirectToAction(nameof(Index));
             }
-           
         }
 
+        // action used when the check all reports
         public async Task<IActionResult> Reports()
         {
             var checkMaxLot = await _parkingSettingRepository.GetParkingSettings(AppConstans.PARKING_SETTING_MAXLOT);
-
-            // Todo  : Ganti Pake Repository
-            var vehicleGroups_type = _parkingDbContext.Vehicles
-            .Where(v => v.CheckOutTime == null)
-            .GroupBy(v => v.Type)
-            .Select(g => new VehicleGroup
-            {
-                Key = g.Key.ToString(),
-                Count = g.Count()
-            })
-            .ToList();
-
-            // Todo  : Ganti Pake Repository
-            var vehicleGroups_police_number = _parkingDbContext.Vehicles
-                .Where(v => v.CheckOutTime == null)
-                .GroupBy(v => ExtractNumberFromPoliceNumber(v.PoliceNumber) % 2 == 0 ? "Even" : "Odd")
-                .Select(g => new VehicleGroup
+            var pricePerHour = getPricePerHour();
+            var vehicleList = (await _vehicleRepository.GetExistingVehicle())
+                .Select(vehicle => new Vehicle
                 {
-                    Key = g.Key,
-                    Count = g.Count()
+                    PoliceNumber = vehicle.PoliceNumber,
+                    Type = vehicle.Type,
+                    Color = vehicle.Color,
+                    CheckInTime = vehicle.CheckInTime,
+                    CheckOutTime = vehicle.CheckOutTime,
+                    LotNumber = vehicle.LotNumber,
+                    pricePerHour = CalculateParkingFee(vehicle.CheckInTime, pricePerHour)
                 })
                 .ToList();
 
-            // Todo  : Ganti Pake Repository
-            var vehicleGroups_color = _parkingDbContext.Vehicles
-                .Where(v => v.CheckOutTime == null)
-                .GroupBy(v => v.Color)
-                .Select(g => new VehicleGroup
-                {
-                    Key = g.Key.ToString(),
-                    Count = g.Count()
-                })
-                .ToList();
-
-            // Todo  : Ganti Pake Repository
             var viewModel = new ReportsViewModel
             {
                 TotalLots = checkMaxLot == null ? 0 : Convert.ToInt16(checkMaxLot.Value),
-                AvailableLots = checkMaxLot == null ? 0 : Convert.ToInt16(checkMaxLot.Value) - _parkingDbContext.Vehicles.Count(v => v.CheckOutTime == null),
-                VehiclesByColors = vehicleGroups_color,
-                VehiclesByType = vehicleGroups_type,
-                VehiclesByPoliceNumber = vehicleGroups_police_number,
-                Vehicles = _parkingDbContext.Vehicles.Where(v => v.CheckOutTime == null).ToList()
+                AvailableLots = checkMaxLot == null ? 0 : Convert.ToInt16(checkMaxLot.Value) - vehicleList.Count(),
+                OccupiedLots = checkMaxLot == null ? 0 : vehicleList.Count(),
+                VehiclesByColors = await _reportRepository.GetDataReportVehicleGroupsByColors(),
+                VehiclesByType = await _reportRepository.GetDataReportVehicleGroupsByType(),
+                VehiclesByPoliceNumber = await _reportRepository.GetDataReportVehicleGroupsByTypePoliceNumber(),
+                Vehicles = vehicleList
             };
 
             return View(viewModel);
         }
 
-
+        // action used when the check all setting parking
         public async Task<IActionResult> Setting()
         {
             var checkMaxLot = await _parkingSettingRepository.GetParkingSettings(AppConstans.PARKING_SETTING_MAXLOT);
@@ -191,6 +181,7 @@ namespace App_Parking_System.Controllers
             return View(viewModel);
         }
 
+        // action used when the update all setting parking
         [HttpPost]
         public async Task<IActionResult> SettingUpdate(ParkingSettingRequest request)
         {
@@ -231,34 +222,38 @@ namespace App_Parking_System.Controllers
             return RedirectToAction(nameof(Setting));
         }
 
-        /*[HttpGet]
-        public IActionResult CreateTestData()
-        {
-            var random = new Random();
-            var vehicleTypes = Enum.GetValues(typeof(VehicleType)).Cast<VehicleType>().ToArray();
 
-            for (int i = 0; i <= 5; i++)
+        // action used when calculate the price of parking
+        private decimal CalculateParkingFee(DateTime checkInTime, int pricePerHour)
+        {
+            DateTime currentTime = DateTime.Now;
+            TimeSpan parkedDuration = currentTime - checkInTime;
+
+            // Jika belum 1 jam, biaya tetap untuk 1 jam
+            if (parkedDuration.TotalHours < 1)
             {
-                var vehicle = new Vehicle()
-                {
-                    CheckInTime = DateTime.Now,
-                    LotNumber = i + 1,
-                    Color = "Blue",
-                    PoliceNumber = $"B-270{i}-XXX",
-                    Type = vehicleTypes[random.Next(vehicleTypes.Length)],
-                };
-
-                _parkingDbContext.Vehicles.Add(vehicle);
-                _parkingDbContext.SaveChanges();
+                return pricePerHour;
             }
-            TempData["ErrorMessage"] = "Create Test Data Berhasil";
-            return RedirectToAction(nameof(Index));
-        }*/
+            else
+            {
+                // Hitung jumlah jam parkir dengan pembulatan ke atas
+                int totalHours = (int)Math.Ceiling(parkedDuration.TotalHours);
+                return totalHours * pricePerHour;
+            }
+        }
 
-        private int ExtractNumberFromPoliceNumber(string policeNumber)
+        // action used when get Price From Setting Data
+        private int getPricePerHour()
         {
-            var numberString = new string(policeNumber.Where(char.IsDigit).ToArray());
-            return int.Parse(numberString);
+            var checkPrice = _parkingSettingRepository.GetParkingSettings(AppConstans.PARKING_SETTING_PRICE).Result;
+            var checkHours = _parkingSettingRepository.GetParkingSettings(AppConstans.PARKING_SETTING_HOURS).Result;
+            var checkHoursValue = checkHours != null ? Convert.ToInt16(checkHours.Value) : 1;
+            var pricePerHour = 0;
+            if (checkPrice != null && checkPrice.Value != "0")
+            {
+                pricePerHour = Convert.ToInt16(checkPrice.Value) * checkHoursValue;
+            }
+            return pricePerHour;
         }
     }
 }
