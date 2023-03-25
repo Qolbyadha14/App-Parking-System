@@ -51,7 +51,7 @@ namespace App_Parking_System.Controllers
             //Check If Max Lot Parking Null
             if (checkMaxLot == null)
             {
-                TempData["ErrorMessage"] = "Gagal check-in: Parking Max Setting Belum Di Setup.";
+                TempData["ErrorMessage"] = "Gagal check-in: Parking Setting Belum Di Setup.";
                 return RedirectToAction(nameof(Setting));
             }
 
