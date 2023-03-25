@@ -3,4 +3,4 @@ image:
 
 tasks:
   - init: dotnet restore
-    command: dotnet watch run
+    command: dotnet watch run --project './App Parking System'/'App Parking System.csproj'
