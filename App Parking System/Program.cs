@@ -12,6 +12,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseInMemoryDatabase("ParkingSystemDb"));
 builder.Services.AddScoped<IVehicleRepository, VehicleRepository>();
 builder.Services.AddScoped<IParkingLotRepository, ParkingLotRepository>();
+builder.Services.AddScoped<IParkingSettingRepository, ParkingSettingRepository>();
 builder.Services.AddControllersWithViews();
 builder.Services.Configure<ParkingSettings>(builder.Configuration.GetSection("ParkingSettings"));
 
