@@ -10,6 +10,7 @@ using Microsoft.Extensions.Options;
 using System.Drawing;
 using System.Runtime.CompilerServices;
 using System.Text;
+using Serilog;
 
 namespace App_Parking_System.Controllers
 {
@@ -37,6 +38,7 @@ namespace App_Parking_System.Controllers
 
         public IActionResult Index()
         {
+            _logger.LogInformation("Controller ParkingController, action Index called.");
             return View();
         }
 
