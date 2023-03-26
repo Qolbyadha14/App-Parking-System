@@ -1,6 +1,5 @@
 ﻿using App_Parking_System.Config;
 using App_Parking_System.Data;
-using App_Parking_System.Dto;
 using App_Parking_System.Helpers;
 using App_Parking_System.Models;
 using App_Parking_System.Repositories;
@@ -9,6 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using System.Drawing;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text;
 using Serilog;
 
@@ -45,9 +45,9 @@ namespace App_Parking_System.Controllers
 
         // action used when the car enters
         [HttpPost]
-        public async Task<IActionResult> CheckIn(CheckinRequest request)
+        public async Task<IActionResult> CheckIn(CheckInViewModel request)
         {
-            var vehicle = ObjectHelpers.Convert<CheckinRequest, Vehicle>(request);
+            var vehicle = ObjectHelpers.Convert<CheckInViewModel, Vehicle>(request);
             var checkMaxLot = await _parkingSettingRepository.GetParkingSettings(AppConstans.PARKING_SETTING_MAXLOT);
 
             //Check If Max Lot Parking Null
@@ -100,7 +100,7 @@ namespace App_Parking_System.Controllers
 
         // action used when the car exits
         [HttpPost]
-        public async Task<IActionResult> CheckOut(CheckOutRequest request)
+        public async Task<IActionResult> CheckOut(CheckOutViewModel request)
         {
             //Check Validation Request
             if (!ModelState.IsValid)
@@ -185,7 +185,7 @@ namespace App_Parking_System.Controllers
 
         // action used when the update all setting parking
         [HttpPost]
-        public async Task<IActionResult> SettingUpdate(ParkingSettingRequest request)
+        public async Task<IActionResult> SettingUpdate(ParkingSettingViewModel request)
         {
             if (!ModelState.IsValid)
             {

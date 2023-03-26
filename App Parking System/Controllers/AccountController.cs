@@ -66,5 +66,45 @@ namespace App_Parking_System.Controllers
                 return RedirectToAction(nameof(HomeController.Index), "Home");
             }
         }
+
+        [HttpGet]
+        public IActionResult Register()
+        {
+            return View();
+        }
+
+        [HttpPost]
+        [AllowAnonymous]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Register(RegisterViewModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                // Membuat user baru
+                var user = new User { UserName = model.Email, Email = model.Email };
+                var result = await _userManager.CreateAsync(user, model.Password);
+
+                if (result.Succeeded)
+                {
+                    // Menambahkan role "Admin" ke user yang baru dibuat
+                    await _userManager.AddToRoleAsync(user, "Admin");
+
+                    // Login user yang baru dibuat
+                    await _signInManager.SignInAsync(user, isPersistent: false);
+
+                    // Redirect ke halaman Home atau halaman yang diinginkan
+                    return RedirectToAction("Index", "Home");
+                }
+
+                // Menampilkan error jika ada
+                foreach (var error in result.Errors)
+                {
+                    ModelState.AddModelError(string.Empty, error.Description);
+                }
+            }
+
+            // Jika model tidak valid, tampilkan kembali halaman pendaftaran
+            return View(model);
+        }
     }
 }

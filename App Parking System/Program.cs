@@ -107,4 +107,6 @@ app.UseEndpoints(endpoints =>
         pattern: "{controller=Parking}/{action=Index}/{id?}");
 });
 
+await DataInitializer.InitializeAsync(app);
+
 app.Run();
