@@ -138,7 +138,6 @@ namespace App_Parking_System.Controllers
 
         // action used when the check all reports
         [Authorize(Policy = "CustomerServicesPolicy")]
-        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Reports()
         {
             var checkMaxLot = await _parkingSettingRepository.GetParkingSettings(AppConstans.PARKING_SETTING_MAXLOT);
@@ -172,7 +171,6 @@ namespace App_Parking_System.Controllers
 
         // action used when the check all setting parking
         [Authorize(Policy = "CustomerServicesPolicy")]
-        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Setting()
         {
             var checkMaxLot = await _parkingSettingRepository.GetParkingSettings(AppConstans.PARKING_SETTING_MAXLOT);

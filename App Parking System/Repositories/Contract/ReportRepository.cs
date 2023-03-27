@@ -41,18 +41,20 @@ namespace App_Parking_System.Repositories.Contract
 
         public async Task<IEnumerable<VehicleGroup>> GetDataReportVehicleGroupsByTypePoliceNumber()
         {
-            return await _context.Vehicles
-                            .Where(v => v.CheckOutTime == null)
-                            .GroupBy(v => ExtractNumberFromPoliceNumber(v.PoliceNumber) % 2 == 0 ? "Even" : "Odd")
-                            .Select(g => new VehicleGroup
-                            {
-                                Key = g.Key,
-                                Count = g.Count()
-                            })
-                            .ToListAsync();
+            var vehicles = await _context.Vehicles
+                         .Where(v => v.CheckOutTime == null)
+                         .ToListAsync(); // Memaksa evaluasi di sisi klien
+
+            return vehicles
+                    .GroupBy(v => ExtractNumberFromPoliceNumber(v.PoliceNumber) % 2 == 0 ? "Even" : "Odd")
+                    .Select(g => new VehicleGroup
+                    {
+                        Key = g.Key,
+                        Count = g.Count()
+                    });
         }
 
-        private int ExtractNumberFromPoliceNumber(string policeNumber)
+        public int ExtractNumberFromPoliceNumber(string policeNumber)
         {
             var numberString = new string(policeNumber.Where(char.IsDigit).ToArray());
             return int.Parse(numberString);
