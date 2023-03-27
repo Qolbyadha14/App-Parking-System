@@ -25,7 +25,7 @@ namespace App_Parking_System.Controllers
         private readonly ApplicationDbContext _parkingDbContext;
         private readonly ILogger<ParkingController> _logger;
 
-        public ParkingController(IVehicleRepository vehicleRepository, IParkingLotRepository parkingLotRepository, ApplicationDbContext parkingDbContext, ILoggerFactory loggerFactory, IParkingSettingRepository parkingSettingRepository, IReportRepository reportRepository, ITempDataDictionaryFactory tempDataFactory)
+        public ParkingController(IVehicleRepository vehicleRepository, IParkingLotRepository parkingLotRepository, ApplicationDbContext parkingDbContext, ILoggerFactory loggerFactory, IParkingSettingRepository parkingSettingRepository, IReportRepository reportRepository)
         {
             _vehicleRepository = vehicleRepository;
             _parkingLotRepository = parkingLotRepository;
@@ -33,7 +33,6 @@ namespace App_Parking_System.Controllers
             _logger = loggerFactory.CreateLogger<ParkingController>();
             _parkingSettingRepository = parkingSettingRepository;
             _reportRepository = reportRepository;
-            TempData = tempDataFactory.GetTempData(HttpContext);
         }
 
         public IActionResult Index()

@@ -56,9 +56,8 @@ namespace AppParkingSystem.Tests
                 null,
                 _loggerFactory,
                 _parkingSettingRepositoryMock.Object,
-                _reportRepositoryMock.Object,
-                tempDataFactoryMock.Object
-            );
+                _reportRepositoryMock.Object            
+                );
             controller.ControllerContext.HttpContext = httpContext;
 
             var request = new CheckInViewModel
