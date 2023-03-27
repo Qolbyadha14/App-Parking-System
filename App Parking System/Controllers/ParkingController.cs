@@ -23,7 +23,6 @@ namespace App_Parking_System.Controllers
         private readonly IReportRepository _reportRepository;
         private readonly ApplicationDbContext _parkingDbContext;
         private readonly ILogger<ParkingController> _logger;
-        private readonly ParkingSettings _parkingSettings;
 
         public ParkingController(IVehicleRepository vehicleRepository, IParkingLotRepository parkingLotRepository, ApplicationDbContext parkingDbContext, ILogger<ParkingController> logger, IParkingSettingRepository parkingSettingRepository, IReportRepository reportRepository)
         {
