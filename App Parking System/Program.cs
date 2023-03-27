@@ -52,6 +52,9 @@ builder.Services.AddAuthorization(options =>
     options.FallbackPolicy = new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()
         .Build();
+
+    options.AddPolicy("AdminPolicy", policy => policy.RequireRole("Admin"));
+    options.AddPolicy("CustomerServicesPolicy", policy => policy.RequireRole("CS"));
 });
 
 builder.Services.Configure<IdentityOptions>(options =>

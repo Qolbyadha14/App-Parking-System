@@ -11,6 +11,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text;
 using Serilog;
+using Microsoft.AspNetCore.Authorization;
 
 namespace App_Parking_System.Controllers
 {
@@ -38,13 +39,13 @@ namespace App_Parking_System.Controllers
 
         public IActionResult Index()
         {
-            _logger.LogInformation("Controller ParkingController, action Index called.");
             return View();
         }
 
 
         // action used when the car enters
         [HttpPost]
+        [Authorize(Policy = "CustomerServicesPolicy")]
         public async Task<IActionResult> CheckIn(CheckInViewModel request)
         {
             var vehicle = ObjectHelpers.Convert<CheckInViewModel, Vehicle>(request);
@@ -100,6 +101,8 @@ namespace App_Parking_System.Controllers
 
         // action used when the car exits
         [HttpPost]
+        [Authorize(Policy = "CustomerServicesPolicy")]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> CheckOut(CheckOutViewModel request)
         {
             //Check Validation Request
@@ -136,6 +139,8 @@ namespace App_Parking_System.Controllers
         }
 
         // action used when the check all reports
+        [Authorize(Policy = "CustomerServicesPolicy")]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Reports()
         {
             var checkMaxLot = await _parkingSettingRepository.GetParkingSettings(AppConstans.PARKING_SETTING_MAXLOT);
@@ -168,6 +173,8 @@ namespace App_Parking_System.Controllers
         }
 
         // action used when the check all setting parking
+        [Authorize(Policy = "CustomerServicesPolicy")]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Setting()
         {
             var checkMaxLot = await _parkingSettingRepository.GetParkingSettings(AppConstans.PARKING_SETTING_MAXLOT);
@@ -185,6 +192,8 @@ namespace App_Parking_System.Controllers
 
         // action used when the update all setting parking
         [HttpPost]
+        [Authorize(Policy = "CustomerServicesPolicy")]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> SettingUpdate(ParkingSettingViewModel request)
         {
             if (!ModelState.IsValid)
