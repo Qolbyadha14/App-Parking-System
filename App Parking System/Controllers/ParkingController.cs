@@ -14,6 +14,7 @@ using Serilog;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.EntityFrameworkCore;
+using App_Parking_System.Repositories.Contract;
 
 namespace App_Parking_System.Controllers
 {
@@ -93,7 +94,13 @@ namespace App_Parking_System.Controllers
             {
                 vehicle.LotNumber = availableLots.Min();
                 vehicle.CheckInTime = DateTime.Now;
-                _ = await _vehicleRepository.AddVehicle(vehicle);
+                var vehicle_add = await _vehicleRepository.AddVehicle(vehicle);
+
+                var add_parking_lot = new ParkingLot
+                {
+                    Vehicle = vehicle_add
+                };
+                _ = await _parkingLotRepository.AddParkingLot(add_parking_lot);
                 TempData["SuccessMessage"] = $"Check-in berhasil! Kendaraan dialokasikan ke lot {vehicle.LotNumber}.";
                 return RedirectToAction(nameof(Index));
             }
@@ -149,7 +156,7 @@ namespace App_Parking_System.Controllers
         {
             var checkMaxLot = await _parkingSettingRepository.GetParkingSettings(AppConstans.PARKING_SETTING_MAXLOT);
             var pricePerHour = getPricePerHour();
-            var vehicleList = (await _vehicleRepository.GetExistingVehicle())
+            var vehicleList = (await _vehicleRepository.GetAllVehicles())
                 .Select(vehicle => new Vehicle
                 {
                     PoliceNumber = vehicle.PoliceNumber,
