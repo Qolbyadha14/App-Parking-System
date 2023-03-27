@@ -1,9 +1,12 @@
 using App_Parking_System.Controllers;
+using App_Parking_System.Data;
+using App_Parking_System.Models;
 using App_Parking_System.Repositories;
 using App_Parking_System.ViewModels;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -44,27 +47,41 @@ namespace AppParkingSystem.Tests
             _vehicleRepositoryMock
                 .Setup(repo => repo.GetExistingVehicle())
                 .ReturnsAsync(new System.Collections.Generic.List<App_Parking_System.Models.Vehicle>());
-
+            
+            // Setup Untuk Sqlite
+            var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>()
+           .UseSqlite($"DataSource=:memory:");
+            var dbContextMock = new ApplicationDbContext(optionsBuilder.Options);
+            await dbContextMock.Database.OpenConnectionAsync(); // Buka koneksi ke database SQLite In-Memory
+            await dbContextMock.Database.EnsureCreatedAsync(); // Buat skema database
             var httpContext = new DefaultHttpContext();
+
+            // Setup Response temp data array karena ada balikan message di controllers
             var tempData = new TempDataDictionary(httpContext, Mock.Of<ITempDataProvider>());
             var tempDataFactoryMock = new Mock<ITempDataDictionaryFactory>();
             tempDataFactoryMock.Setup(s => s.GetTempData(It.IsAny<HttpContext>())).Returns(tempData);
 
+
+            // setup harus sama constructor controller utama
             var controller = new ParkingController(
                 _vehicleRepositoryMock.Object,
                 _parkingLotRepositoryMock.Object,
-                null,
+                dbContextMock,
                 _loggerFactory,
                 _parkingSettingRepositoryMock.Object,
-                _reportRepositoryMock.Object            
-                );
+                _reportRepositoryMock.Object,
+                tempDataFactoryMock.Object
+            );
+
             controller.ControllerContext.HttpContext = httpContext;
+            controller.TempData = tempData;
 
             var request = new CheckInViewModel
             {
                 PoliceNumber = "B-1234-XYZ",
                 Color = "Blue",
-                Type = App_Parking_System.Models.VehicleType.Car
+                Type = App_Parking_System.Models.VehicleType.Car,
+
             };
 
             // Act

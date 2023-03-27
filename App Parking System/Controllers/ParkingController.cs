@@ -13,6 +13,7 @@ using System.Text;
 using Serilog;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
+using Microsoft.EntityFrameworkCore;
 
 namespace App_Parking_System.Controllers
 {
@@ -24,8 +25,9 @@ namespace App_Parking_System.Controllers
         private readonly IReportRepository _reportRepository;
         private readonly ApplicationDbContext _parkingDbContext;
         private readonly ILogger<ParkingController> _logger;
+        private readonly ITempDataDictionaryFactory _tempDataFactory;
 
-        public ParkingController(IVehicleRepository vehicleRepository, IParkingLotRepository parkingLotRepository, ApplicationDbContext parkingDbContext, ILoggerFactory loggerFactory, IParkingSettingRepository parkingSettingRepository, IReportRepository reportRepository)
+        public ParkingController(IVehicleRepository vehicleRepository, IParkingLotRepository parkingLotRepository, ApplicationDbContext parkingDbContext, ILoggerFactory loggerFactory, IParkingSettingRepository parkingSettingRepository, IReportRepository reportRepository, ITempDataDictionaryFactory tempDataFactory)
         {
             _vehicleRepository = vehicleRepository;
             _parkingLotRepository = parkingLotRepository;
@@ -33,6 +35,7 @@ namespace App_Parking_System.Controllers
             _logger = loggerFactory.CreateLogger<ParkingController>();
             _parkingSettingRepository = parkingSettingRepository;
             _reportRepository = reportRepository;
+            _tempDataFactory = tempDataFactory;
         }
 
         public IActionResult Index()
@@ -46,8 +49,10 @@ namespace App_Parking_System.Controllers
         [Authorize(Policy = "CustomerServicesPolicy")]
         public async Task<IActionResult> CheckIn(CheckInViewModel request)
         {
+
             var vehicle = ObjectHelpers.Convert<CheckInViewModel, Vehicle>(request);
             var checkMaxLot = await _parkingSettingRepository.GetParkingSettings(AppConstans.PARKING_SETTING_MAXLOT);
+            var tempData = _tempDataFactory.GetTempData(HttpContext);
 
             //Check If Max Lot Parking Null
             if (checkMaxLot == null)
@@ -103,6 +108,8 @@ namespace App_Parking_System.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> CheckOut(CheckOutViewModel request)
         {
+            var tempData = _tempDataFactory.GetTempData(HttpContext);
+
             //Check Validation Request
             if (!ModelState.IsValid)
             {
@@ -192,6 +199,8 @@ namespace App_Parking_System.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> SettingUpdate(ParkingSettingViewModel request)
         {
+            var tempData = _tempDataFactory.GetTempData(HttpContext);
+
             if (!ModelState.IsValid)
             {
                 var errors = new StringBuilder();
