@@ -21,10 +21,10 @@ namespace App_Parking_System.Data
                 await roleManager.CreateAsync(new IdentityRole("Admin"));
             }
 
-            // Cek apakah role "Admin" sudah ada
+            // Cek apakah role "Cs" sudah ada
             if (!await roleManager.RoleExistsAsync("CS"))
             {
-                // Buat role "Admin" jika belum ada
+                // Buat role "Cs" jika belum ada
                 await roleManager.CreateAsync(new IdentityRole("CS"));
             }
 

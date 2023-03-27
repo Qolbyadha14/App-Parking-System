@@ -12,6 +12,7 @@ using System.Text;
 using System.Text;
 using Serilog;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 
 namespace App_Parking_System.Controllers
 {
@@ -24,16 +25,15 @@ namespace App_Parking_System.Controllers
         private readonly ApplicationDbContext _parkingDbContext;
         private readonly ILogger<ParkingController> _logger;
 
-        public ParkingController(IVehicleRepository vehicleRepository, IParkingLotRepository parkingLotRepository, ApplicationDbContext parkingDbContext, ILogger<ParkingController> logger, IParkingSettingRepository parkingSettingRepository, IReportRepository reportRepository)
+        public ParkingController(IVehicleRepository vehicleRepository, IParkingLotRepository parkingLotRepository, ApplicationDbContext parkingDbContext, ILoggerFactory loggerFactory, IParkingSettingRepository parkingSettingRepository, IReportRepository reportRepository, ITempDataDictionaryFactory tempDataFactory)
         {
             _vehicleRepository = vehicleRepository;
             _parkingLotRepository = parkingLotRepository;
             _parkingDbContext = parkingDbContext;
-            _logger = logger;
+            _logger = loggerFactory.CreateLogger<ParkingController>();
             _parkingSettingRepository = parkingSettingRepository;
             _reportRepository = reportRepository;
-
-
+            TempData = tempDataFactory.GetTempData(HttpContext);
         }
 
         public IActionResult Index()

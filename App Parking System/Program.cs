@@ -54,7 +54,8 @@ builder.Services.AddAuthorization(options =>
         .Build();
 
     options.AddPolicy("AdminPolicy", policy => policy.RequireRole("Admin"));
-    options.AddPolicy("CustomerServicesPolicy", policy => policy.RequireRole("CS"));
+    options.AddPolicy("CustomerServicesPolicy", policy => policy.RequireAssertion(context =>
+        context.User.IsInRole("CS") || context.User.IsInRole("Admin")));
 });
 
 builder.Services.Configure<IdentityOptions>(options =>
