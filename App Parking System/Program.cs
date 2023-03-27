@@ -1,13 +1,10 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Builder;
 using App_Parking_System.Data;
 using App_Parking_System.Repositories.Contract;
 using App_Parking_System.Repositories;
 using App_Parking_System.Models;
-using Microsoft.Extensions.Configuration;
 using Serilog;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -29,8 +26,10 @@ Log.Logger = new LoggerConfiguration()
 builder.Host.UseSerilog();
 
 // Add services to the container.
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseInMemoryDatabase("ParkingSystemDb"));
+/*builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseInMemoryDatabase("ParkingSystemDb"));*/
+builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+
 
 builder.Services.AddIdentity<User, IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>()
