@@ -5,9 +5,9 @@ namespace App_Parking_System.Repositories
 {
     public interface IParkingLotRepository
     {
-        IEnumerable<ParkingLot> GetAllParkingLots();
-        ParkingLot GetParkingLot(int id);
-        ParkingLot AddParkingLot(ParkingLot parkingLot);
-        ParkingLot UpdateParkingLot(ParkingLot parkingLot);
+        Task<IEnumerable<ParkingLot>> GetAllParkingLots();
+        Task<ParkingLot> GetParkingLot(int id);
+        Task<ParkingLot> AddParkingLot(ParkingLot parkingLot);
+        Task<ParkingLot> UpdateParkingLot(ParkingLot parkingLot);
     }
 }

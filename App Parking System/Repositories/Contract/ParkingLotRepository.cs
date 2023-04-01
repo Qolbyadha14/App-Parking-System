@@ -1,5 +1,6 @@
 ﻿using App_Parking_System.Data;
 using App_Parking_System.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace App_Parking_System.Repositories.Contract
 {
@@ -12,27 +13,27 @@ namespace App_Parking_System.Repositories.Contract
             _context = context;
         }
 
-        public IEnumerable<ParkingLot> GetAllParkingLots()
+        public  async Task<IEnumerable<ParkingLot>> GetAllParkingLots()
         {
-            return _context.ParkingLots.ToList();
+            return await _context.ParkingLots.ToListAsync();
         }
 
-        public ParkingLot GetParkingLot(int id)
+        public async Task<ParkingLot> GetParkingLot(int id)
         {
-            return _context.ParkingLots.Find(id);
+            return await _context.ParkingLots.FindAsync(id);
         }
 
-        public ParkingLot AddParkingLot(ParkingLot parkingLot)
+        public async Task<ParkingLot> AddParkingLot(ParkingLot parkingLot)
         {
             _context.ParkingLots.Add(parkingLot);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
             return parkingLot;
         }
 
-        public ParkingLot UpdateParkingLot(ParkingLot parkingLot)
+        public async Task<ParkingLot> UpdateParkingLot(ParkingLot parkingLot)
         {
             _context.ParkingLots.Update(parkingLot);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
             return parkingLot;
         }
     }

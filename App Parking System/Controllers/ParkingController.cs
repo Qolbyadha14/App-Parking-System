@@ -1,6 +1,5 @@
 ﻿using App_Parking_System.Config;
 using App_Parking_System.Data;
-using App_Parking_System.Dto;
 using App_Parking_System.Helpers;
 using App_Parking_System.Models;
 using App_Parking_System.Repositories;
@@ -10,6 +9,12 @@ using Microsoft.Extensions.Options;
 using System.Drawing;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text;
+using Serilog;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
+using Microsoft.EntityFrameworkCore;
+using App_Parking_System.Repositories.Contract;
 
 namespace App_Parking_System.Controllers
 {
@@ -21,18 +26,17 @@ namespace App_Parking_System.Controllers
         private readonly IReportRepository _reportRepository;
         private readonly ApplicationDbContext _parkingDbContext;
         private readonly ILogger<ParkingController> _logger;
-        private readonly ParkingSettings _parkingSettings;
+        private readonly ITempDataDictionaryFactory _tempDataFactory;
 
-        public ParkingController(IVehicleRepository vehicleRepository, IParkingLotRepository parkingLotRepository, ApplicationDbContext parkingDbContext, ILogger<ParkingController> logger, IParkingSettingRepository parkingSettingRepository, IReportRepository reportRepository)
+        public ParkingController(IVehicleRepository vehicleRepository, IParkingLotRepository parkingLotRepository, ApplicationDbContext parkingDbContext, ILoggerFactory loggerFactory, IParkingSettingRepository parkingSettingRepository, IReportRepository reportRepository, ITempDataDictionaryFactory tempDataFactory)
         {
             _vehicleRepository = vehicleRepository;
             _parkingLotRepository = parkingLotRepository;
             _parkingDbContext = parkingDbContext;
-            _logger = logger;
+            _logger = loggerFactory.CreateLogger<ParkingController>();
             _parkingSettingRepository = parkingSettingRepository;
             _reportRepository = reportRepository;
-
-
+            _tempDataFactory = tempDataFactory;
         }
 
         public IActionResult Index()
@@ -43,10 +47,13 @@ namespace App_Parking_System.Controllers
 
         // action used when the car enters
         [HttpPost]
-        public async Task<IActionResult> CheckIn(CheckinRequest request)
+        [Authorize(Policy = "CustomerServicesPolicy")]
+        public async Task<IActionResult> CheckIn(CheckInViewModel request)
         {
-            var vehicle = ObjectHelpers.Convert<CheckinRequest, Vehicle>(request);
+
+            var vehicle = ObjectHelpers.Convert<CheckInViewModel, Vehicle>(request);
             var checkMaxLot = await _parkingSettingRepository.GetParkingSettings(AppConstans.PARKING_SETTING_MAXLOT);
+            var tempData = _tempDataFactory.GetTempData(HttpContext);
 
             //Check If Max Lot Parking Null
             if (checkMaxLot == null)
@@ -87,7 +94,13 @@ namespace App_Parking_System.Controllers
             {
                 vehicle.LotNumber = availableLots.Min();
                 vehicle.CheckInTime = DateTime.Now;
-                _ = await _vehicleRepository.AddVehicle(vehicle);
+                var vehicle_add = await _vehicleRepository.AddVehicle(vehicle);
+
+                var add_parking_lot = new ParkingLot
+                {
+                    Vehicle = vehicle_add
+                };
+                _ = await _parkingLotRepository.AddParkingLot(add_parking_lot);
                 TempData["SuccessMessage"] = $"Check-in berhasil! Kendaraan dialokasikan ke lot {vehicle.LotNumber}.";
                 return RedirectToAction(nameof(Index));
             }
@@ -98,8 +111,12 @@ namespace App_Parking_System.Controllers
 
         // action used when the car exits
         [HttpPost]
-        public async Task<IActionResult> CheckOut(CheckOutRequest request)
+        [Authorize(Policy = "CustomerServicesPolicy")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CheckOut(CheckOutViewModel request)
         {
+            var tempData = _tempDataFactory.GetTempData(HttpContext);
+
             //Check Validation Request
             if (!ModelState.IsValid)
             {
@@ -134,11 +151,12 @@ namespace App_Parking_System.Controllers
         }
 
         // action used when the check all reports
+        [Authorize(Policy = "CustomerServicesPolicy")]
         public async Task<IActionResult> Reports()
         {
             var checkMaxLot = await _parkingSettingRepository.GetParkingSettings(AppConstans.PARKING_SETTING_MAXLOT);
             var pricePerHour = getPricePerHour();
-            var vehicleList = (await _vehicleRepository.GetExistingVehicle())
+            var vehicleList = (await _vehicleRepository.GetAllVehicles())
                 .Select(vehicle => new Vehicle
                 {
                     PoliceNumber = vehicle.PoliceNumber,
@@ -166,6 +184,7 @@ namespace App_Parking_System.Controllers
         }
 
         // action used when the check all setting parking
+        [Authorize(Policy = "CustomerServicesPolicy")]
         public async Task<IActionResult> Setting()
         {
             var checkMaxLot = await _parkingSettingRepository.GetParkingSettings(AppConstans.PARKING_SETTING_MAXLOT);
@@ -183,8 +202,12 @@ namespace App_Parking_System.Controllers
 
         // action used when the update all setting parking
         [HttpPost]
-        public async Task<IActionResult> SettingUpdate(ParkingSettingRequest request)
+        [Authorize(Policy = "CustomerServicesPolicy")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SettingUpdate(ParkingSettingViewModel request)
         {
+            var tempData = _tempDataFactory.GetTempData(HttpContext);
+
             if (!ModelState.IsValid)
             {
                 var errors = new StringBuilder();
