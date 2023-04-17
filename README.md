@@ -5,3 +5,9 @@
 - Setup Program.cs
 - change app.Run(); to app.Run("http://localhost:5000");
 - if gitpod not running automatic use this command in terminal gitpod: `dotnet watch run --project './App Parking System'/'App Parking System.csproj'`
+
+Admin
+user : admin@example.com, password : Admin123!
+
+CS
+user : cs@example.com, password : CustServ123!
